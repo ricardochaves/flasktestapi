@@ -1,1 +1,3 @@
 *.pyc
+flaskapi
+settings.json

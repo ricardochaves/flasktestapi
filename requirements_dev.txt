@@ -1,0 +1,1 @@
+pylint-flask==0.5
