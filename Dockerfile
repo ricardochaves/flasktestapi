@@ -1,7 +1,43 @@
-FROM python:3.7.0a1-alpine3.6
+FROM python:3.6.3
+
 LABEL maintainer="Ricardo Baltazar Chaves <ricardobchaves6@gmail.com>"
-ADD . /todo
-WORKDIR /todo
-EXPOSE 5000
-RUN pip install -r requirements.txt
-ENTRYPOINT ["python", "app.py"]
+
+# Nginx + UWSGI Plugin
+RUN apt-get update && \
+    apt-get -y install \
+    curl \
+    python-dev \
+    libmysqlclient-dev \
+    nginx \
+    supervisor \
+    uwsgi
+
+
+# Install pip
+ENV PYTHON_PIP_VERSION 8.1.2
+RUN curl -SL 'https://bootstrap.pypa.io/get-pip.py' | python \
+    && pip install --upgrade pip==$PYTHON_PIP_VERSION
+
+# Setup Nginx
+RUN rm /etc/nginx/sites-enabled/default
+COPY config-files/flask.conf /etc/nginx/sites-available/
+RUN ln -s /etc/nginx/sites-available/flask.conf /etc/nginx/sites-enabled/flask.conf
+COPY config-files/uwsgi.ini /var/www/app/
+RUN echo "daemon off;" >> /etc/nginx/nginx.conf
+
+# install uwsgi
+RUN pip install uwsgi
+
+# Setup Supervisor
+RUN mkdir -p /var/log/supervisor
+COPY config-files/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Copy Requirements and Install
+# This ensures that after initial build modules will be cached
+COPY requirements.txt /var/www/app
+RUN pip install -r /var/www/app/requirements.txt
+
+# Copy Application
+COPY . /var/www/app
+
+CMD ["/usr/bin/supervisord"]
